@@ -1,0 +1,13 @@
+
+cSpell:enable
+ss
+
+bait len frame
+creating of headers has been moved to separate functions 
+error in ether_receive_and_save allocate memory for resieve buffer
+ 
+
+
+
+Transmit and receive frame functions now don't close/open socket. Socket giving then as parameter. 
+/* cSpell:disable */
