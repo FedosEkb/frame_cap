@@ -30,20 +30,35 @@ int main(int argc, char **argv)
         fprintf(stderr, "Device %s doesn't provide Ethernet headers -not supported\n", device);
         return (2);
     }
-    return 0;
-
+    
     char filter_exp[] = "ether dst 47:00:00:00:00:00 and ether src 12:00:00:00:00:00"; /* Выражение фильтра */
 
     if (SetFilter(handle, filter_exp))
     {
         return 2;
     }
+
+    struct pcap_pkthdr header; /* Заголовок который нам дает PCAP */
+    const u_char *packet;  /* Пакет */
+
+     /* Захват пакета */
+    packet = pcap_next(handle, &header);
+    frame_capture_handler(nullptr, &header, packet);
+    std::cout << "end of prog"<< std::endl;
+enum PCAP_CONST_t{
+    INFINITE_FRAME_POLLING = -1
+};
+    pcap_loop(handle,INFINITE_FRAME_POLLING,frame_capture_handler,nullptr); // NOTE this is infinite call!!
+
+    /* Закрытие сессии */
+    pcap_close(handle);
+    return 0;
 }
 
-/// @brief Устанавливает фильтр на 
-/// @param handle 
-/// @param filter_exp 
-/// @return 
+/// @brief Устанавливает фильтр на соединение
+/// @param handle Хендлер сокета продостовляемый PCAP
+/// @param filter_exp Фильтр навешиваемый на сокет
+/// @return Статус операции.
 int SetFilter(pcap_t *handle, char *filter_exp)
 {
     struct bpf_program fp; /* Скомпилированный фильтр */
@@ -80,7 +95,7 @@ bool GetInterfaceName(int argc, char *&device, char **argv,char error_buffer[PCA
         pcap_if_t *all_devices;
         if (pcap_findalldevs(&all_devices, error_buffer))
         {
-            std::cout << "Error finding device: " << error_buffer << std::endl;
+            std::cerr << "Error finding device: " << error_buffer << std::endl;
             return true;
         }
         if (all_devices->next == NULL)
@@ -115,4 +130,43 @@ bool GetInterfaceName(int argc, char *&device, char **argv,char error_buffer[PCA
         }
     }
     return false;
+}
+
+/// @brief Функция "обработки" 
+/// @param nothing параметр не ипстользуется, добавлен для совметимости с сингнатурой pcap_loop
+/// @param header Pointer to generic per-packet information, supplied by libpcap.
+/// @param packet Pointer to packet address.
+void frame_capture_handler(u_char *nothing, const struct pcap_pkthdr *header, const u_char *packet)
+{
+    std::cout << "Jacked a packet with length of " << header->len << "\n";
+    std::cout << "Jacked a packet with capture length of " << header->caplen << "\n";
+    std::cout << "Capture time is " << header->ts.tv_sec << " sec, " << header->ts.tv_usec << " usec" << std::endl;
+    const struct sniff_ethernet *ethernet; /* Заголовок Ethernet */
+    const char *payload;                   /* Данные пакета */
+
+    ethernet = (struct sniff_ethernet *)(packet);
+
+    payload = (char *)(packet + SIZE_ETHERNET);
+
+    std::cout << std::hex;
+    std::cout << "dest MAC addr: ";
+    for (size_t i = 0; i < ETHER_ADDR_LEN; i++)
+    {
+        std::cout << static_cast<uint32_t>(ethernet->ether_dhost[i]) << ((i != ETHER_ADDR_LEN - 1) ? ":" : "");
+    }
+    std::cout << "\n"
+              << "src MAC addr: ";
+    for (size_t i = 0; i < ETHER_ADDR_LEN; i++)
+    {
+        std::cout << static_cast<uint32_t>(ethernet->ether_shost[i]) << ((i != ETHER_ADDR_LEN - 1) ? ":" : "");
+    }
+    std::cout << "\n"
+              << "type/len field: " << ntohs(ethernet->ether_type) << "\nbody of packet: ";
+    for (size_t i = 0; i < header->len - SIZE_ETHERNET; i++)
+    {
+        std::cout << static_cast<uint32_t>(*(payload + i)) << " ";
+    }
+    std::cout << std::endl;
+    std::cout << std::dec;
+    // TODO  запихнуть сюда логику проверки!!
 }
