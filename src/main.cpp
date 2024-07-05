@@ -30,8 +30,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "Device %s doesn't provide Ethernet headers -not supported\n", device);
         return (2);
     }
-    
-    char filter_exp[] = "ether dst 47:00:00:00:00:00 and ether src 12:00:00:00:00:00"; /* Выражение фильтра */
+
+    char filter_exp[] = "ether dst 47:00:00:00:00:00 and ether src 12:00:00:00:00:00 and ether[12:2] >= 0x2e and ether[12:2] <= 1500"; /* Выражение фильтра and ether proto <= 1500 */ 
 
     if (SetFilter(handle, filter_exp))
     {
